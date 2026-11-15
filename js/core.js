@@ -1,5 +1,5 @@
 import { auth, provider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, D, C, getDoc, getDocs, setDoc, addDoc, query, where, limit, serverTimestamp, Timestamp } from "./fb.js";
-import { h, openModal, field, run, toast, isPhone, rp, safeUrl, toMs } from "./ui.js";
+import { h, openModal, field, run, toast, isPhone, rp, safeUrl, toMs, phoneSvg, icon, ICON, tone } from "./ui.js";
 
 /* ---------- state ---------- */
 export const S = { user: null, profile: null, role: null, store: null, ready: false };
@@ -161,12 +161,16 @@ export const sellerInc = (p) => (p < 1000000 ? 5000 : p <= 5000000 ? 10000 : 250
 
 export function productCard(p) {
   const thumb = safeUrl(p.photos?.[0]);
+  const t = tone(p.grade);
+  const spec = [p.storage, p.health?.battery ? p.health.battery + "%" : null].filter(Boolean).join(" · ");
   return h("a", { class: "pc", href: "#/produk/" + p.id },
-    h("div", { class: "pc-img" }, thumb ? h("img", { src: thumb, alt: "", loading: "lazy" }) : h("span", { class: "mut xs" }, "Tanpa foto"),
-      h("span", { class: "tag grade g" + p.grade }, p.grade), p.reviewedByRx ? h("span", { class: "tag rx ac", title: "Direview Rxgadget" }, "Direview") : null),
+    h("div", { class: "pc-img", style: thumb ? {} : { background: `radial-gradient(80px 80px at 50% 55%, ${t.glow}, rgba(20,24,33,0) 75%)` } },
+      thumb ? h("img", { src: thumb, alt: "", loading: "lazy" }) : phoneSvg(p.grade),
+      h("span", { class: "gpill", style: { background: t.tint } }, p.grade || "-"),
+      p.reviewedByRx ? h("span", { class: "chk-c", title: "Direview Rxgadget" }, icon(ICON.check, 9, "#4DF0C0", 3)) : null),
     h("div", { class: "pc-b" },
       h("div", { class: "pc-t" }, p.title),
-      h("div", { class: "pc-s" }, [p.storage, p.health?.battery ? "Baterai " + p.health.battery + "%" : null].filter(Boolean).join(" · ")),
+      h("div", { class: "pc-s" }, spec),
       h("div", { class: "pc-p" }, rp(p.price)),
       h("div", { class: "pc-s" }, p.storeName)));
 }
