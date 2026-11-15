@@ -9,8 +9,8 @@ p{margin:0}
 img{max-width:100%}
 button,input,select,textarea{font:inherit;color:inherit}
 .wrap{max-width:960px;margin:0 auto;padding:0 16px}
-#top{position:sticky;top:0;z-index:20;background:rgba(11,13,18,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-.bar{max-width:960px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:10px;justify-content:space-between}
+#top{position:relative;z-index:20;background:var(--bg)}
+.bar{max-width:960px;margin:0 auto;padding:10px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between}
 .logo{display:flex;align-items:center;gap:7px;color:var(--tx);font:700 18px 'Space Grotesk',sans-serif}
 .logo b{color:var(--ac)}
 #chips{max-width:960px;margin:0 auto;padding:8px 16px 0;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
@@ -137,3 +137,33 @@ td,th{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;vertic
 .vid-c{position:absolute;left:8px;bottom:8px;font-size:9px;background:rgba(11,13,18,.85);border:1px solid var(--line);border-radius:6px;padding:2px 6px}
 .pill{font-size:11px;border:1px solid var(--line2);border-radius:999px;padding:4px 10px}
 .cta{background:linear-gradient(135deg,#14202a,#10282a);border-color:#1e4a45}
+
+/* ---- Selaras mockup (Fill) ---- */
+.navl{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;font-weight:500}
+.navl a{color:var(--tx)}.navl a:hover{color:var(--ac)}
+.logo .ac,.logo b{color:var(--ac)}
+#foot{text-align:left}
+.fwrap{max-width:960px;margin:0 auto;display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between}
+.flinks a{margin:0 0 0 14px}
+.hero-bg{margin:0 -16px;background:radial-gradient(520px 240px at 78% 30%,rgba(77,240,192,.14),rgba(11,13,18,0) 70%)}
+.hero{padding:16px 16px 24px}
+.dotbadge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--line2);border-radius:999px;font-size:11px;color:var(--mut)}
+.dotbadge i{width:6px;height:6px;border-radius:50%;background:var(--ac);display:block}
+.h1{margin:10px 0 0;font:700 30px/1.1 'Space Grotesk',sans-serif;letter-spacing:-.02em}
+.heroart{position:relative;min-height:250px;display:flex;justify-content:center;align-items:center}
+.hcard{position:absolute;left:0;bottom:6px;width:146px;box-sizing:border-box;padding:9px;background:rgba(20,24,33,.94);border:1px solid var(--line2);border-radius:12px}
+.hcard .gp{padding:2px 7px;border-radius:999px;background:var(--ac);color:var(--acd);font-weight:600}
+.bar4{margin-top:4px;height:4px;border-radius:2px;background:var(--line)}.bar4 i{display:block;height:4px;border-radius:2px;background:var(--ac)}
+.hc-r{margin-top:6px;display:flex;justify-content:space-between;font-size:11px}
+.trust{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.gpill{position:absolute;left:5px;top:5px;padding:2px 6px;border-radius:999px;color:#06130F;font-size:9px;font-weight:700}
+.chk-c{position:absolute;right:5px;top:5px;width:16px;height:16px;border-radius:50%;background:rgba(11,13,18,.85);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center}
+.pc-img{background:var(--card2)}
+.sample{padding:12px;background:var(--card);border:1px solid var(--line2);border-radius:14px}
+.tmr{padding:4px 9px;border-radius:999px;background:rgba(255,180,84,.14);color:var(--am);font-size:11px;font-weight:600}
+.wrap-in.two{display:flex;flex-wrap:wrap;gap:18px;align-items:center}
+.wrap-in.two>div{flex:1 1 270px;min-width:0}
+.rev .vid{margin:0 auto;width:140px;height:240px;border-radius:18px;background:linear-gradient(160deg,#16301F,#10141C 60%)}
+.cta{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:18px 16px;border-radius:18px;border:1px solid var(--line2);background:radial-gradient(380px 160px at 85% 0%,rgba(77,240,192,.14),rgba(20,24,33,0) 70%),var(--card)}
+.cta>div{flex:1 1 280px;min-width:0}
+.step .num{width:24px;height:24px}
