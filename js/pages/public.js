@@ -1,0 +1,141 @@
+import { D, C, getDoc, getDocs, setDoc, query, where, limit, serverTimestamp } from "../fb.js";
+import { h, rp, field, run, toast, openModal, chips, kv, note, safeUrl, waLink, fmtDate, toMs, GRADE_HELP } from "../ui.js";
+import { S, route, go, requireLogin, loadProducts, productCard, storeMap, logEntry, notify } from "../core.js";
+
+/* ---------- Beranda ---------- */
+route("/", async () => {
+  const items = (await loadProducts().catch(() => [])).slice(0, 6);
+  const trust = [["Direview Rxgadget", "Unit diuji langsung dan ditampilkan apa adanya."], ["Toko terverifikasi", "Setiap toko disetujui admin sebelum berjualan."], ["Dana ditahan penengah", "Uang diteruskan ke toko setelah Anda puas."], ["Video cacat jelas", "Cacat didokumentasikan lewat foto dan link video."]];
+  return h("div", null,
+    h("div", { class: "hero" }, h("div", null,
+      h("span", { class: "tag ok" }, "HP second · direview langsung"),
+      h("h1", { style: { marginTop: "10px" } }, "HP second yang dicek, direview, dan jelas kondisinya."),
+      h("p", null, "Setiap unit punya foto, catatan cacat, dan health card. Mau jual HP lama? Biarkan toko bersaing memberi penawaran terbaik."),
+      h("div", { class: "row", style: { marginTop: "14px" } }, h("a", { class: "btn pri", href: "#/katalog" }, "Jelajahi HP"), h("a", { class: "btn", href: "#/jual" }, "Jual / Tukar Tambah")))),
+    h("div", { class: "grid2", style: { marginTop: "10px" } }, trust.map(([t, d]) => h("div", { class: "card pad" }, h("div", { class: "b" }, t), h("div", { class: "mut sm" }, d)))),
+    h("div", { class: "sec" }, h("div", { class: "row sp" }, h("h2", null, "HP terbaru"), h("a", { href: "#/katalog", class: "sm" }, "Lihat semua")),
+      items.length ? h("div", { class: "grid3", style: { marginTop: "10px" } }, items.map(productCard)) : h("p", { class: "mut", style: { marginTop: "10px" } }, "Belum ada produk. Toko yang sudah disetujui akan segera menampilkan HP di sini.")),
+    h("div", { class: "card pad sec" }, h("h2", null, "Punya toko HP? Coba dulu, gratis."), h("p", { class: "mut", style: { margin: "8px 0 12px" } }, "Pasang produk di etalase tokomu, ikut menawar HP yang masuk, dan tampil di konten review. Uji coba gratis 1 bulan, lalu langganan tetap tanpa komisi per penjualan."), h("a", { class: "btn pri", href: "#/daftar-toko" }, "Daftar sebagai Toko")));
+});
+
+/* ---------- Katalog ---------- */
+route("/katalog", async (_, q) => {
+  const all = await loadProducts();
+  const f = { os: "", grade: "", trade: false, text: q.q || "", sort: "new" };
+  const grid = h("div", { class: "grid3" });
+  const info = h("div", { class: "mut sm" });
+  const draw = () => {
+    let list = all.filter((p) => (!f.os || p.os === f.os) && (!f.grade || p.grade === f.grade) && (!f.trade || p.tradeIn) && (!f.text || (p.title + " " + p.storeName + " " + p.brand).toLowerCase().includes(f.text.toLowerCase())));
+    if (f.sort === "low") list = [...list].sort((a, b) => a.price - b.price);
+    if (f.sort === "high") list = [...list].sort((a, b) => b.price - a.price);
+    info.textContent = list.length + " HP ditemukan";
+    grid.replaceChildren(...list.map(productCard));
+    if (!list.length) grid.replaceChildren(h("p", { class: "mut", style: { gridColumn: "1/-1" } }, "Tidak ada HP yang cocok."));
+  };
+  const search = h("input", { type: "search", placeholder: "Cari tipe atau toko…", value: f.text, onInput: (e) => { f.text = e.target.value; draw(); } });
+  const sort = h("select", { onChange: (e) => { f.sort = e.target.value; draw(); } }, h("option", { value: "new" }, "Terbaru"), h("option", { value: "low" }, "Harga termurah"), h("option", { value: "high" }, "Harga termahal"));
+  draw();
+  return h("div", null, h("h1", null, "Beli HP"),
+    h("div", { class: "col", style: { margin: "12px 0" } }, search,
+      chips([["", "Semua"], ["iOS", "iPhone"], ["Android", "Android"]], "", (v) => { f.os = v; draw(); }),
+      chips([["", "Semua grade"], ["A", "Grade A"], ["B", "Grade B"], ["C", "Grade C"]], "", (v) => { f.grade = v; draw(); }),
+      h("div", { class: "row sp" }, h("label", { class: "chk" }, h("input", { type: "checkbox", onChange: (e) => { f.trade = e.target.checked; draw(); } }), "Bisa tukar tambah"), sort)),
+    info, grid);
+});
+
+/* ---------- Detail produk ---------- */
+route("/produk/:id", async ({ id }) => {
+  const snap = await getDoc(D("products", id));
+  if (!snap.exists()) return h("div", { class: "card pad" }, "Produk tidak ditemukan.");
+  const p = { id, ...snap.data() };
+  const sSnap = await getDoc(D("stores", p.storeId));
+  const st = sSnap.exists() ? sSnap.data() : {};
+  const photos = (p.photos || []).map(safeUrl).filter(Boolean);
+  const hc = p.health || {};
+  const buy = async (btn) => {
+    if (!(await requireLogin())) return;
+    if (S.user.uid === p.storeId) return toast("Ini produk toko Anda sendiri", "err");
+    const method = { v: "cod" };
+    const addr = h("textarea", { placeholder: "Alamat lengkap pengiriman" });
+    const addrField = field("Alamat pengiriman", addr);
+    addrField.style.display = "none";
+    openModal("Beli " + p.title, h("div", null,
+      kv("Harga", rp(p.price)), kv("Toko", p.storeName),
+      field("Cara serah terima", chips([["cod", "Ambil / bertemu di toko"], ["kirim", "Dikirim paket"]], "cod", (v) => { method.v = v; addrField.style.display = v === "kirim" ? "" : "none"; })),
+      addrField,
+      note("Pembayaran dilakukan ke Rxgadget (penengah). Dana baru diteruskan ke toko setelah Anda menyatakan puas, atau 7 hari setelah HP diterima tanpa komplain. Untuk paket kiriman, rekam video saat membuka paket sebagai bukti komplain.", "wr")
+    ), (close) => [h("button", { class: "btn pri", onClick: async (e) => {
+      if (method.v === "kirim" && addr.value.trim().length < 10) return toast("Alamat belum lengkap", "err");
+      await run(e.currentTarget, async () => {
+        const ref = D("orders", crypto.randomUUID());
+        await setDoc(ref, {
+          productId: p.id, productTitle: p.title, productPhoto: photos[0] || "", price: p.price, storeId: p.storeId, storeName: p.storeName,
+          buyerId: S.user.uid, buyerName: S.profile.name, buyerPhone: S.profile.phone, method: method.v, address: method.v === "kirim" ? addr.value.trim() : "",
+          status: "awaiting_payment", log: [logEntry("Pesanan dibuat")], createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+        });
+        await notify(p.storeId, "Pesanan baru untuk " + p.title, "/pesanan/" + ref.id);
+        close(); go("/pesanan/" + ref.id);
+      });
+    } }, "Buat pesanan"), h("button", { class: "btn", onClick: () => close() }, "Batal")]);
+  };
+  const statusNote = p.status === "reserved" ? note("HP ini sedang dalam transaksi.", "wr") : p.status === "sold" ? note("HP ini sudah terjual.", "wr") : null;
+  return h("div", { class: "col gap" },
+    photos.length ? h("div", { class: "gal" }, photos.map((u) => h("img", { src: u, alt: p.title, loading: "lazy" }))) : h("div", { class: "ph" }, "Belum ada foto"),
+    h("div", null,
+      h("div", { class: "row" }, h("span", { class: "tag grade g" + p.grade }, "Grade " + p.grade), h("span", { class: "tag" }, "Second"), p.reviewedByRx ? h("span", { class: "tag ok" }, "Direview Rxgadget") : null, p.tradeIn ? h("span", { class: "tag ok" }, "Bisa tukar tambah") : null),
+      h("h1", { style: { marginTop: "8px" } }, p.title),
+      h("div", { class: "mut sm", style: { marginTop: "4px" } }, "Dijual oleh ", h("a", { href: "#/toko/" + p.storeId }, p.storeName), p.storeCity ? " · " + p.storeCity : ""),
+      h("div", { style: { font: "700 24px 'Space Grotesk'", marginTop: "10px" } }, rp(p.price))),
+    statusNote,
+    h("div", { class: "row" },
+      h("button", { class: "btn pri", disabled: p.status !== "active", onClick: (e) => run(e.currentTarget, () => buy(e.currentTarget)) }, "Beli sekarang"),
+      st.whatsapp ? h("a", { class: "btn", href: waLink(st.whatsapp, `Halo, saya tertarik dengan ${p.title} di Rxgadget.`), target: "_blank", rel: "noopener" }, "Chat toko") : null),
+    h("div", { class: "card pad" }, h("h3", null, "Health card"), h("div", { class: "hc", style: { marginTop: "10px" } },
+      h("div", null, h("small", null, "Baterai"), hc.battery ? hc.battery + "%" : "-"), h("div", null, h("small", null, "Layar"), hc.screen || "-"),
+      h("div", null, h("small", null, "Kamera"), hc.camera || "-"), h("div", null, h("small", null, "Fungsi lain"), hc.functions || "-"))),
+    h("div", { class: "card pad" }, h("h3", null, "Catatan cacat"),
+      (p.defects || []).length ? h("div", { class: "col", style: { marginTop: "8px" } }, p.defects.map((d) => h("div", null, h("div", { class: "b" }, d.label), h("div", { class: "mut sm" }, d.note || "")))) : h("p", { class: "mut", style: { marginTop: "6px" } }, "Penjual tidak mencantumkan cacat."),
+      safeUrl(p.videoUrl) ? h("a", { class: "btn out sm", style: { marginTop: "10px" }, href: safeUrl(p.videoUrl), target: "_blank", rel: "noopener" }, "Tonton video") : null),
+    h("div", { class: "card pad" }, kv("Merek / tipe", p.brand + " " + p.model), kv("Kapasitas", p.storage || "-"), kv("Grade", "Grade " + p.grade + " · " + (GRADE_HELP[p.grade] || "")), kv("Kelengkapan", (p.completeness || []).join(", ") || "-"), kv("Garansi toko", p.warranty || "-"), kv("IMEI", p.imei ? "Dicatat toko" : "Tidak dicantumkan"), kv("Diunggah", fmtDate(p.createdAt))),
+    note("Dana Anda ditahan Rxgadget sampai Anda puas. Masa komplain 7 hari setelah HP diterima, hanya jika HP tidak sesuai deskripsi, foto/video, atau health card."));
+});
+
+/* ---------- Halaman toko ---------- */
+route("/toko/:id", async ({ id }) => {
+  const sSnap = await getDoc(D("stores", id));
+  if (!sSnap.exists()) return h("div", { class: "card pad" }, "Toko tidak ditemukan.");
+  const s = sSnap.data();
+  const [map, pSnap, rSnap] = await Promise.all([storeMap(), getDocs(query(C("products"), where("storeId", "==", id), where("status", "==", "active"), limit(100))), getDocs(query(C("reviews"), where("storeId", "==", id), limit(50)))]);
+  const prods = []; pSnap.forEach((d) => prods.push({ id: d.id, ...d.data() }));
+  const revs = []; rSnap.forEach((d) => revs.push(d.data()));
+  revs.sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt));
+  const avg = revs.length ? (revs.reduce((x, r) => x + r.rating, 0) / revs.length).toFixed(1) : null;
+  const active = map[id]?.active;
+  return h("div", { class: "col gap" },
+    h("div", { class: "card pad row" },
+      safeUrl(s.logoUrl) ? h("img", { src: safeUrl(s.logoUrl), alt: "", width: 56, height: 56, style: { borderRadius: "12px", objectFit: "cover" } }) : null,
+      h("div", { style: { flex: "1 1 200px" } }, h("h1", null, s.name), h("div", { class: "row", style: { marginTop: "6px" } }, h("span", { class: "tag ok" }, "Toko terverifikasi"), avg ? h("span", { class: "tag" }, "★ " + avg + " (" + revs.length + ")") : h("span", { class: "tag" }, "Belum ada ulasan")))),
+    h("div", { class: "card pad" }, kv("Kota", s.city || "-"), kv("Alamat", s.address || "-"), kv("Jam buka", s.hours || "-"), s.description ? kv("Tentang", s.description) : null,
+      h("div", { class: "row", style: { marginTop: "10px" } }, s.whatsapp ? h("a", { class: "btn sm", href: waLink(s.whatsapp), target: "_blank", rel: "noopener" }, "WhatsApp") : null, safeUrl(s.mapUrl) ? h("a", { class: "btn sm out", href: safeUrl(s.mapUrl), target: "_blank", rel: "noopener" }, "Lihat di peta") : null)),
+    h("div", null, h("h2", null, "HP dari toko ini"), active ? (prods.length ? h("div", { class: "grid3", style: { marginTop: "10px" } }, prods.map(productCard)) : h("p", { class: "mut", style: { marginTop: "8px" } }, "Belum ada produk aktif.")) : note("Toko ini sedang tidak aktif berjualan.", "wr")),
+    h("div", null, h("h2", null, "Ulasan"), revs.length ? h("div", { class: "col", style: { marginTop: "10px" } }, revs.map((r) => h("div", { class: "card pad" }, h("div", { class: "row sp" }, h("span", { class: "b" }, r.reviewerName || "Pengguna"), h("span", { class: "am" }, "★".repeat(r.rating))), r.comment ? h("div", { class: "mut sm", style: { marginTop: "4px" } }, r.comment) : null, h("div", { class: "xs mut", style: { marginTop: "4px" } }, (r.kind === "jual" ? "Penjual HP · " : "Pembeli · ") + fmtDate(r.createdAt))))) : h("p", { class: "mut", style: { marginTop: "8px" } }, "Ulasan hanya muncul dari transaksi yang sudah selesai.")));
+});
+
+/* ---------- Syarat & Privasi (templat: perlu ditinjau pihak hukum) ---------- */
+const legal = (title, paras) => h("div", { class: "col" }, h("h1", null, title), note("Templat awal. Mohon ditinjau konsultan hukum sebelum dipakai untuk transaksi sungguhan. Bagian [ISI] harus dilengkapi pemilik."), ...paras.map((t) => h("p", { class: "mut" }, t)));
+route("/syarat", () => legal("Syarat Layanan", [
+  "1. Rxgadget adalah platform yang mempertemukan pembeli, penjual HP, dan toko HP, serta bertindak sebagai penengah dana transaksi.",
+  "2. Dana pembayaran pembeli ditahan Rxgadget dan diteruskan ke toko setelah pembeli menyatakan puas atau 7 hari setelah HP diterima tanpa komplain.",
+  "3. Komplain hanya sah jika HP tidak sesuai deskripsi, foto/video, atau health card. Untuk paket kiriman, video saat membuka paket wajib sebagai bukti.",
+  "4. Pada jual / tukar tambah, penawaran bersifat estimasi. Harga final ditentukan setelah toko mengecek fisik HP; toko dapat mengajukan harga baru dan penjual berhak menolak.",
+  "5. Toko wajib berlangganan sesuai ketentuan yang berlaku. Toko yang berulang kali melanggar dapat ditangguhkan.",
+  "6. Pengguna bertanggung jawab atas kebenaran data, foto, dan IMEI yang dicantumkan.",
+  "7. Pengelola: [ISI nama pengelola dan kontak]. Hukum yang berlaku dan penyelesaian sengketa: [ISI]."
+]));
+route("/privasi", () => legal("Kebijakan Privasi", [
+  "1. Data yang kami simpan: nama, email, nomor HP, data rekening untuk pencairan dana, serta riwayat transaksi.",
+  "2. Nomor HP dibagikan hanya kepada pihak yang bertransaksi dengan Anda.",
+  "3. Data dipakai untuk menjalankan transaksi, mencegah penipuan, dan menyelesaikan komplain.",
+  "4. Anda dapat meminta koreksi atau penghapusan data lewat [ISI kontak pengelola], sepanjang tidak bertentangan dengan kewajiban pencatatan transaksi.",
+  "5. Data disimpan pada layanan Google Firebase."
+]));
