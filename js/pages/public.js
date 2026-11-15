@@ -1,46 +1,62 @@
 import { D, C, getDoc, getDocs, setDoc, query, where, limit, serverTimestamp } from "../fb.js";
-import { h, rp, field, run, toast, openModal, chips, kv, note, safeUrl, waLink, fmtDate, toMs, GRADE_HELP } from "../ui.js";
+import { h, rp, field, run, toast, openModal, chips, kv, note, safeUrl, waLink, fmtDate, toMs, GRADE_HELP, svg, icon, ICON, phoneSvg, tone } from "../ui.js";
 import { S, route, go, requireLogin, loadProducts, productCard, storeMap, logEntry, notify } from "../core.js";
 
 /* ---------- Beranda ---------- */
-const DEMO = [["iPhone 13", "128 GB · Baterai 87%", "A", "ok"], ["Samsung Galaxy S22", "256 GB · Baterai 91%", "A", "ok"], ["iPhone 11", "64 GB · Baterai 82%", "B", "am"], ["Xiaomi 12", "128 GB · Baterai 79%", "C", "rd"]];
-const phoneArt = (tone) => h("div", { class: "ph-art " + tone }, h("div", { class: "ph-body" }, h("i")));
+const DEMO = [["iPhone 13", "128 GB · 87%", "A", "[Toko A]"], ["Galaxy S22", "256 GB · 91%", "A", "[Toko B]"], ["iPhone 11", "64 GB · 82%", "B", "[Toko C]"], ["Xiaomi 12", "128 GB · 79%", "C", "[Toko A]"], ["iPhone 12", "128 GB · 85%", "B", "[Toko B]"], ["Galaxy A54", "128 GB · 90%", "A", "[Toko C]"]];
+const heroPhone = () => svg('<svg width="128" height="240" viewBox="0 0 250 470" aria-hidden="true"><defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4DF0C0" stop-opacity="0.35"/><stop offset="1" stop-color="#FFB454" stop-opacity="0.12"/></linearGradient></defs><rect x="4" y="4" width="242" height="462" rx="40" fill="#10141C" stroke="#2B3347" stroke-width="3"/><rect x="16" y="16" width="218" height="438" rx="30" fill="#0F1F24"/><rect x="16" y="16" width="218" height="438" rx="30" fill="url(#g1)"/><rect x="92" y="28" width="66" height="18" rx="9" fill="#0B0D12"/><circle cx="125" cy="232" r="46" fill="none" stroke="#4DF0C0" stroke-width="2" opacity="0.6"/><circle cx="125" cy="232" r="26" fill="none" stroke="#4DF0C0" stroke-width="2" opacity="0.9"/></svg>');
 route("/", async () => {
   const all = await loadProducts().catch(() => []);
   const f = { k: "all" };
-  const grid = h("div", { class: "grid3" });
+  const grid = h("div", { class: "grid3", style: { marginTop: "12px" } });
   const demoNote = h("p", { class: "mut xs", style: { marginTop: "8px" } });
+  const sub = h("p", { class: "mut xs", style: { marginTop: "4px" } });
   const draw = () => {
     const list = all.filter((p) => f.k === "all" || (f.k === "ios" && p.os === "iOS") || (f.k === "android" && p.os === "Android") || (f.k === "trade" && p.tradeIn)).slice(0, 9);
-    if (all.length) { grid.replaceChildren(...(list.length ? list.map(productCard) : [h("p", { class: "mut", style: { gridColumn: "1/-1" } }, "Belum ada HP untuk filter ini.")])); demoNote.textContent = ""; }
-    else { grid.replaceChildren(...DEMO.map(([t, sp, g, tone]) => h("div", { class: "pc demo" }, h("div", { class: "pc-img glow " + tone }, phoneArt(tone), h("span", { class: "tag grade g" + g }, "Grade " + g), h("span", { class: "tag rx ac" }, "Direview")), h("div", { class: "pc-b" }, h("div", { class: "pc-t" }, t), h("div", { class: "pc-s" }, sp), h("div", { class: "pc-s" }, "[Nama Toko]"), h("div", { class: "pc-p" }, "Rp [HARGA]"))))); demoNote.textContent = "Contoh tampilan. HP asli muncul di sini setelah toko yang disetujui mengunggah produk."; }
+    if (all.length) {
+      sub.textContent = "Unit terbaru dari toko yang sudah disetujui.";
+      grid.replaceChildren(...(list.length ? list.map(productCard) : [h("p", { class: "mut", style: { gridColumn: "1/-1" } }, "Belum ada HP untuk filter ini.")]));
+      demoNote.textContent = "Ikon centang = sudah direview Rxgadget.";
+    } else {
+      sub.textContent = "Contoh tampilan katalog. Tiap kartu dari toko yang berbeda.";
+      grid.replaceChildren(...DEMO.map(([t, sp, g, st]) => h("div", { class: "pc demo" },
+        h("div", { class: "pc-img", style: { background: `radial-gradient(80px 80px at 50% 55%, ${tone(g).glow}, rgba(20,24,33,0) 75%)` } }, phoneSvg(g), h("span", { class: "gpill", style: { background: tone(g).tint } }, g), h("span", { class: "chk-c" }, icon(ICON.check, 9, "#4DF0C0", 3))),
+        h("div", { class: "pc-b" }, h("div", { class: "pc-t" }, t), h("div", { class: "pc-s" }, sp), h("div", { class: "pc-p" }, "Rp [HARGA]"), h("div", { class: "pc-s" }, st)))));
+      demoNote.textContent = "Ikon centang = sudah direview Rxgadget. HP asli muncul di sini setelah toko yang disetujui mengunggah produk.";
+    }
   };
   draw();
-  const filters = chips([["all", "Semua"], ["ios", "iPhone"], ["android", "Android"], ["trade", "Bisa tukar tambah"]], "all", (v) => { f.k = v; draw(); });
-  const feats = [["☆", "Direview Rxgadget", "Unit diuji langsung dan ditampilkan apa adanya."], ["✓", "Toko terverifikasi", "Setiap toko disetujui admin sebelum berjualan."], ["▯", "IMEI dicek", "Status IMEI tampil di health card tiap HP."], ["▶", "Video cacat jelas", "Cacat didokumentasikan lewat foto dan video."]];
+  const filters = chips([["all", "Semua"], ["ios", "iPhone"], ["android", "Android"], ["trade", "Tukar tambah"]], "all", (v) => { f.k = v; draw(); });
+  const trust = [[ICON.star, "Direview Rxgadget", "Unit diuji langsung, ditampilkan apa adanya."], [ICON.shield, "Toko terverifikasi", "Disetujui admin sebelum berjualan."], [ICON.phone, "IMEI dicek", "Status IMEI tampil di health card."], [ICON.video, "Video cacat jelas", "Cacat didokumentasikan foto dan video."]];
   const steps = [["Isi form HP-mu", "Tipe, kondisi, kelengkapan, IMEI, plus foto dan video cacat."], ["Toko mengirim penawaran", "Beberapa toko bersaing dalam batas waktu yang jelas."], ["Pilih dan serah terima", "Pilih penawaran terbaik, lalu cek fisik dan serah terima di toko."]];
   const bids = [["[Nama Toko B]", "Penawaran terbaru", "Tertinggi", true], ["[Nama Toko A]", "Menerima tukar tambah", "Kedua"], ["[Nama Toko C]", "Cek fisik di toko", "Ketiga"]];
-  return h("div", null,
-    h("div", { class: "hero" }, h("div", null,
-      h("span", { class: "tag ok" }, "HP second · direview langsung"),
-      h("h1", { style: { marginTop: "10px" } }, "HP second yang dicek, direview, dan jelas kondisinya."),
-      h("p", null, "Setiap unit punya foto, catatan cacat, dan health card. Mau jual HP lama? Biarkan toko bersaing memberi penawaran terbaik."),
-      h("div", { class: "row", style: { marginTop: "14px" } }, h("a", { class: "btn pri", href: "#/katalog" }, "Jelajahi HP"), h("a", { class: "btn", href: "#/jual" }, "Jual / Tukar Tambah"))),
-      h("div", { class: "hero-art" }, phoneArt("ok"))),
-    h("div", { class: "feats" }, feats.map(([i, t, d]) => h("div", { class: "feat" }, h("span", { class: "feat-i" }, i), h("div", null, h("div", { class: "b" }, t), h("div", { class: "mut xs" }, d))))),
-    h("div", { class: "sec" }, h("div", { class: "row sp" }, h("h2", null, "HP pilihan"), h("a", { href: "#/katalog", class: "sm" }, "Lihat semua")), filters, grid, demoNote),
-    h("div", { class: "band" }, h("div", { class: "wrap-in" },
-      h("div", { class: "eyebrow am" }, "JUAL / TUKAR TAMBAH"), h("h2", { class: "big" }, "Jual HP-mu. Biar toko yang bersaing."),
-      h("div", { class: "steps" }, steps.map(([t, d], i) => h("div", { class: "step" }, h("span", { class: "num" }, String(i + 1)), h("div", null, h("div", { class: "b" }, t), h("div", { class: "mut xs" }, d))))),
-      h("a", { class: "btn am", href: "#/jual", style: { marginTop: "14px" } }, "Ajukan HP-mu"),
-      h("div", { class: "card pad sample" }, h("div", { class: "row sp" }, h("div", null, h("div", { class: "b" }, "Penawaran masuk"), h("div", { class: "mut xs" }, "Contoh tampilan · iPhone 12 128 GB")), h("span", { class: "tag wr" }, "Sisa 23:41:10")),
-        h("div", { class: "col", style: { marginTop: "10px", gap: "8px" } }, bids.map(([n, s2, rk, top]) => h("div", { class: "bid" + (top ? " top" : "") }, h("div", null, h("div", { class: "b sm" }, n), h("div", { class: "mut xs" }, s2)), h("div", { style: { textAlign: "right" } }, h("div", { class: "b sm" }, "Rp [TAWARAN]"), h("div", { class: top ? "ac xs" : "mut xs" }, rk))))),
+  const hc = (k, v, c) => h("div", { class: "hc-r" }, h("span", { class: "mut" }, k), h("span", { style: c ? { color: c } : {} }, v));
+  return h("div", { class: "home" },
+    h("div", { class: "hero-bg" }, h("div", { class: "hero" },
+      h("div", null,
+        h("span", { class: "dotbadge" }, h("i"), "HP second · direview langsung"),
+        h("h1", { class: "h1" }, "HP second yang dicek, direview, dan jelas kondisinya."),
+        h("p", null, "Setiap unit punya foto, video cacat, dan health card. Mau jual HP lama? Biarkan toko bersaing memberi penawaran terbaik."),
+        h("div", { class: "row", style: { marginTop: "14px" } }, h("a", { class: "btn pri", href: "#/katalog" }, "Jelajahi HP"), h("a", { class: "btn out", href: "#/jual" }, "Jual / Tukar Tambah"))),
+      h("div", { class: "heroart" }, heroPhone(),
+        h("div", { class: "hcard" }, h("div", { class: "row sp mut xs" }, h("span", null, "Health card"), h("span", { class: "gp" }, "Grade A")),
+          h("div", { class: "mut xs", style: { marginTop: "7px" } }, "Baterai"), h("div", { class: "bar4" }, h("i", { style: { width: "87%" } })),
+          hc("Layar", "Mulus"), hc("Kamera", "Normal"), hc("IMEI", "Bersih", "#4DF0C0"))))),
+    h("div", { class: "trust" }, trust.map(([ic, t, d]) => h("div", { class: "feat" }, icon(ic), h("div", null, h("div", { class: "b" }, t), h("div", { class: "mut xs" }, d))))),
+    h("div", { class: "sec" }, h("div", { class: "row sp", style: { alignItems: "flex-end" } }, h("div", null, h("h2", null, "HP pilihan"), sub), filters), grid, demoNote),
+    h("div", { class: "band" }, h("div", { class: "wrap-in two" },
+      h("div", null,
+        h("div", { class: "eyebrow am" }, "JUAL / TUKAR TAMBAH"), h("h2", { class: "big" }, "Jual HP-mu. Biar toko yang bersaing."),
+        h("div", { class: "steps" }, steps.map(([t, d], i) => h("div", { class: "step" }, h("span", { class: "num" }, String(i + 1)), h("div", null, h("div", { class: "b" }, t), h("div", { class: "mut xs" }, d))))),
+        h("a", { class: "btn am", href: "#/jual", style: { marginTop: "14px" } }, "Ajukan HP-mu")),
+      h("div", { class: "sample" }, h("div", { class: "row sp" }, h("div", null, h("div", { class: "b" }, "Penawaran masuk"), h("div", { class: "mut xs" }, "Contoh · iPhone 12 128 GB")), h("span", { class: "tmr" }, "Sisa 23:41:10")),
+        h("div", { class: "col", style: { marginTop: "10px", gap: "6px" } }, bids.map(([n, s2, rk, top]) => h("div", { class: "bid" + (top ? " top" : "") }, h("div", null, h("div", { class: "b sm" }, n), h("div", { class: "mut xs" }, s2)), h("div", { style: { textAlign: "right" } }, h("div", { class: "b sm" }, "Rp [TAWARAN]"), h("div", { class: top ? "ac xs" : "mut xs" }, rk))))),
         h("p", { class: "mut xs", style: { marginTop: "10px" } }, "Penawaran berupa estimasi. Harga final ditentukan setelah toko mengecek fisik HP.")))),
-    h("div", { class: "sec rev" }, h("div", { class: "vid" }, h("span", { class: "play" }, "▶"), h("span", { class: "mut xs vid-c" }, "Video review [JUDUL]")),
+    h("div", { class: "sec rev", id: "review" }, h("div", { class: "vid" }, svg('<svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="none" stroke="#4DF0C0" stroke-width="2"/><path d="M26 20v24l20-12z" fill="#4DF0C0"/></svg>'), h("span", { class: "vid-c" }, "Video review [JUDUL]")),
       h("div", null, h("div", { class: "eyebrow ac" }, "REVIEW LANGSUNG"), h("h2", { class: "big" }, "Dari video review, langsung ke halaman jualnya."),
-        h("p", { class: "mut sm", style: { margin: "8px 0 10px" } }, "Tonton review HP di TikTok, lalu buka link atau scan QR di video untuk melihat unit yang sama lengkap dengan health card, foto, dan penawaran toko."),
+        h("p", { class: "mut sm", style: { margin: "10px 0 12px" } }, "Tonton review di TikTok, lalu buka link atau scan QR di video untuk melihat unit yang sama lengkap dengan health card, foto, dan penawaran toko."),
         h("div", { class: "row" }, ["Direview Rxgadget", "Toko Terverifikasi", "IMEI Dicek"].map((t) => h("span", { class: "pill" }, t))))),
-    h("div", { class: "card pad sec cta" }, h("h2", null, "Punya toko HP? Coba dulu, gratis."), h("p", { class: "mut", style: { margin: "8px 0 12px" } }, "Pasang produkmu sendiri di etalase tokomu, ikut menawar HP yang masuk, dan tampil di konten review. Ada masa uji coba, lalu langganan tetap tanpa komisi per penjualan."), h("a", { class: "btn pri", href: "#/daftar-toko" }, "Daftar sebagai Toko")));
+    h("div", { class: "cta sec" }, h("div", null, h("h2", null, "Punya toko HP? Coba dulu, gratis."), h("p", { class: "mut sm", style: { margin: "8px 0 0" } }, "Pasang produkmu di etalase tokomu, ikut menawar HP yang masuk, dan tampil di konten review. Ada masa uji coba, lalu langganan tetap tanpa komisi per penjualan.")), h("a", { class: "btn pri", href: "#/daftar-toko" }, "Daftar sebagai Toko")));
 });
 
 /* ---------- Katalog ---------- */
