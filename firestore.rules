@@ -1,0 +1,198 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function docs() { return /databases/$(database)/documents; }
+    function roleDoc() { return get(/databases/$(database)/documents/roles/$(request.auth.uid)); }
+    function isStaff() { return signedIn() && exists(/databases/$(database)/documents/roles/$(request.auth.uid)) && roleDoc().data.role in ['owner', 'admin']; }
+    function isOwner() { return signedIn() && exists(/databases/$(database)/documents/roles/$(request.auth.uid)) && roleDoc().data.role == 'owner'; }
+    function activeStore() {
+      return signedIn() && exists(/databases/$(database)/documents/stores/$(request.auth.uid))
+        && get(/databases/$(database)/documents/stores/$(request.auth.uid)).data.status == 'approved'
+        && get(/databases/$(database)/documents/stores/$(request.auth.uid)).data.subscriptionUntil > request.time;
+    }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function tierInc(p) { return p < 1000000 ? 5000 : (p <= 5000000 ? 10000 : 25000); }
+
+    match /users/{id} {
+      allow read: if signedIn() && (id == uid() || isStaff());
+      allow create, update: if signedIn() && id == uid();
+    }
+
+    match /roles/{id} {
+      allow read: if signedIn() && (id == uid() || isOwner());
+      allow create: if signedIn() && id == uid()
+        && request.resource.data.keys().hasOnly(['role', 'username', 'email', 'code', 'createdAt'])
+        && request.resource.data.role == 'admin'
+        && get(/databases/$(database)/documents/invites/$(request.resource.data.code)).data.used == false
+        && getAfter(/databases/$(database)/documents/invites/$(request.resource.data.code)).data.used == true
+        && getAfter(/databases/$(database)/documents/invites/$(request.resource.data.code)).data.usedBy == uid()
+        && get(/databases/$(database)/documents/invites/$(request.resource.data.code)).data.username == request.resource.data.username;
+      allow update, delete: if isOwner() && id != uid();
+    }
+
+    match /invites/{code} {
+      allow get: if signedIn();
+      allow list: if isOwner();
+      allow create: if isOwner();
+      allow update: if signedIn() && resource.data.used == false
+        && changed().hasOnly(['used', 'usedBy', 'usedAt'])
+        && request.resource.data.used == true && request.resource.data.usedBy == uid();
+      allow delete: if isOwner();
+    }
+
+    match /settings/{id} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    match /stores/{id} {
+      allow get: if true;
+      allow list: if resource.data.status == 'approved' || (signedIn() && (id == uid() || isStaff()));
+      allow create: if signedIn() && id == uid() && request.resource.data.status == 'pending'
+        && request.resource.data.warnings == 0 && !('subscriptionUntil' in request.resource.data);
+      allow update: if isStaff() || (signedIn() && id == uid()
+        && changed().hasOnly(['name', 'city', 'address', 'mapUrl', 'hours', 'whatsapp', 'description', 'logoUrl', 'updatedAt']));
+    }
+
+    match /products/{id} {
+      allow get: if true;
+      allow list: if resource.data.status == 'active' || (signedIn() && (resource.data.storeId == uid() || isStaff()));
+      allow create: if activeStore() && request.resource.data.storeId == uid();
+      allow update: if isStaff() || (signedIn() && resource.data.storeId == uid() && request.resource.data.storeId == uid());
+      allow delete: if signedIn() && (resource.data.storeId == uid() || isStaff());
+    }
+
+    match /orders/{id} {
+      allow read: if signedIn() && (resource.data.buyerId == uid() || resource.data.storeId == uid() || isStaff());
+      allow create: if signedIn() && request.resource.data.buyerId == uid()
+        && request.resource.data.status == 'awaiting_payment'
+        && get(/databases/$(database)/documents/products/$(request.resource.data.productId)).data.status == 'active'
+        && get(/databases/$(database)/documents/products/$(request.resource.data.productId)).data.storeId == request.resource.data.storeId
+        && get(/databases/$(database)/documents/products/$(request.resource.data.productId)).data.price == request.resource.data.price;
+      allow update: if signedIn() && (
+        // pembeli
+        (resource.data.buyerId == uid() && changed().hasOnly(['status', 'paymentProofUrl', 'receivedAt', 'unboxingUrl', 'complaint', 'log', 'updatedAt']) && (
+          (resource.data.status in ['awaiting_payment', 'payment_submitted'] && request.resource.data.status in ['payment_submitted', 'cancelled'] && resource.data.status == 'awaiting_payment')
+          || (resource.data.status == 'handed' && request.resource.data.status == 'received' && request.resource.data.receivedAt == request.time)
+          || (resource.data.status == 'received' && request.resource.data.status == 'satisfied')
+          || (resource.data.status == 'received' && request.resource.data.status == 'complaint' && request.time < resource.data.receivedAt + duration.value(7, 'd'))
+        ))
+        // toko
+        || (resource.data.storeId == uid() && resource.data.status == 'paid' && request.resource.data.status == 'handed'
+            && changed().hasOnly(['status', 'handover', 'log', 'updatedAt']))
+        // staf (payout/refund hanya owner)
+        || (isStaff() && changed().hasOnly(['status', 'log', 'updatedAt'])
+            && (!(request.resource.data.status in ['payout_done', 'refund_done']) || isOwner()))
+      );
+    }
+
+    match /reviews/{id} {
+      allow read: if true;
+      allow create: if signedIn() && request.resource.data.reviewerId == uid()
+        && request.resource.data.rating is int && request.resource.data.rating >= 1 && request.resource.data.rating <= 5
+        && (
+          (!id.matches('sr_.*')
+            && get(/databases/$(database)/documents/orders/$(id)).data.buyerId == uid()
+            && get(/databases/$(database)/documents/orders/$(id)).data.status in ['satisfied', 'payout_done']
+            && get(/databases/$(database)/documents/orders/$(id)).data.storeId == request.resource.data.storeId)
+          || (id.matches('sr_.*')
+            && get(/databases/$(database)/documents/sellRequests/$(id[3:])).data.sellerId == uid()
+            && get(/databases/$(database)/documents/sellRequests/$(id[3:])).data.status in ['acc', 'payout_done']
+            && get(/databases/$(database)/documents/sellRequests/$(id[3:])).data.winnerStoreId == request.resource.data.storeId)
+        );
+      allow delete: if isStaff();
+    }
+
+    match /sellRequests/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.sellerId == uid() && request.resource.data.status == 'open'
+        && request.resource.data.highestBid == 0 && request.resource.data.bidCount == 0
+        && request.resource.data.highestBidder == '' && request.resource.data.winnerStoreId == ''
+        && request.resource.data.startPrice >= 1000
+        && request.resource.data.increment == tierInc(request.resource.data.startPrice)
+        && request.resource.data.endsAt <= request.time + duration.value(361, 'h')
+        && request.resource.data.endsAt > request.time
+        && existsAfter(/databases/$(database)/documents/sellRequests/$(id)/private/data);
+      allow update: if signedIn() && (
+        // penawaran
+        (activeStore() && resource.data.status == 'open' && resource.data.sellerId != uid() && request.time < resource.data.endsAt
+          && request.resource.data.status == 'open'
+          && changed().hasOnly(['highestBid', 'highestBidder', 'bidCount', 'endsAt', 'updatedAt'])
+          && request.resource.data.highestBidder == uid()
+          && request.resource.data.bidCount == resource.data.bidCount + 1
+          && request.resource.data.highestBid >= (resource.data.bidCount == 0 ? resource.data.startPrice : resource.data.highestBid + resource.data.increment)
+          && (request.resource.data.endsAt == resource.data.endsAt
+              || (request.resource.data.endsAt == resource.data.endsAt + duration.value(5, 'm') && request.time + duration.value(6, 'm') > resource.data.endsAt)))
+        // beli sekarang
+        || (activeStore() && resource.data.status == 'open' && resource.data.sellerId != uid() && request.time < resource.data.endsAt
+          && resource.data.buyNowPrice > 0 && request.resource.data.status == 'awaiting_store_payment'
+          && changed().hasOnly(['status', 'winnerStoreId', 'finalAmount', 'payDeadline', 'log', 'updatedAt'])
+          && request.resource.data.winnerStoreId == uid() && request.resource.data.finalAmount == resource.data.buyNowPrice
+          && request.resource.data.payDeadline <= request.time + duration.value(25, 'h'))
+        // penjual
+        || (resource.data.sellerId == uid() && (
+          (resource.data.status == 'open' && resource.data.bidCount == 0 && request.resource.data.status == 'cancelled' && changed().hasOnly(['status', 'log', 'updatedAt']))
+          || (resource.data.status == 'open' && request.time > resource.data.endsAt && request.resource.data.status == 'ended' && changed().hasOnly(['status', 'log', 'updatedAt']))
+          || (resource.data.status == 'open' && request.time > resource.data.endsAt && request.resource.data.status == 'awaiting_store_payment'
+              && changed().hasOnly(['status', 'winnerStoreId', 'finalAmount', 'payDeadline', 'log', 'updatedAt'])
+              && request.resource.data.winnerStoreId == resource.data.highestBidder && request.resource.data.finalAmount == resource.data.highestBid
+              && resource.data.highestBid >= get(/databases/$(database)/documents/sellRequests/$(id)/private/data).data.minPrice
+              && request.resource.data.payDeadline <= request.time + duration.value(25, 'h'))
+          || (resource.data.status == 'awaiting_store_payment' && request.time > resource.data.payDeadline
+              && request.resource.data.status in ['awaiting_store_payment', 'cancelled']
+              && changed().hasOnly(['status', 'winnerStoreId', 'finalAmount', 'payDeadline', 'failedStores', 'log', 'updatedAt'])
+              && request.resource.data.finalAmount <= resource.data.finalAmount
+              && request.resource.data.payDeadline <= request.time + duration.value(25, 'h'))
+          || (resource.data.status == 'awaiting_handover' && request.resource.data.status == 'handed_over' && changed().hasOnly(['status', 'handover', 'log', 'updatedAt']))
+          || (resource.data.status == 'repricing' && request.resource.data.status == 'acc' && changed().hasOnly(['status', 'finalAmount', 'log', 'updatedAt']) && request.resource.data.finalAmount == resource.data.reprice.price)
+          || (resource.data.status == 'repricing' && request.resource.data.status == 'returning' && changed().hasOnly(['status', 'log', 'updatedAt']))
+        ))
+        // toko pemenang
+        || (resource.data.winnerStoreId == uid() && (
+          (resource.data.status == 'awaiting_store_payment' && request.resource.data.status == 'store_payment_submitted' && changed().hasOnly(['status', 'storeProofUrl', 'log', 'updatedAt']))
+          || (resource.data.status == 'handed_over' && request.resource.data.status == 'acc' && changed().hasOnly(['status', 'log', 'updatedAt']))
+          || (resource.data.status == 'handed_over' && request.resource.data.status == 'repricing' && changed().hasOnly(['status', 'reprice', 'log', 'updatedAt'])
+              && request.resource.data.reprice.price < resource.data.finalAmount)
+          || (resource.data.status == 'awaiting_handover' && request.time > resource.data.handoverDeadline && request.resource.data.status == 'cancelled_paid' && changed().hasOnly(['status', 'log', 'updatedAt']))
+        ))
+        // staf
+        || (isStaff() && (
+          (resource.data.status == 'store_payment_submitted' && request.resource.data.status == 'awaiting_handover' && changed().hasOnly(['status', 'handoverDeadline', 'log', 'updatedAt']))
+          || (resource.data.status == 'store_payment_submitted' && request.resource.data.status == 'awaiting_store_payment' && changed().hasOnly(['status', 'log', 'updatedAt']))
+          || (isOwner() && resource.data.status == 'acc' && request.resource.data.status == 'payout_done' && changed().hasOnly(['status', 'log', 'updatedAt']))
+          || (isOwner() && resource.data.status in ['returning', 'cancelled_paid'] && request.resource.data.status == 'refunded' && changed().hasOnly(['status', 'log', 'updatedAt']))
+        ))
+      );
+
+      match /bids/{bid} {
+        allow read: if signedIn() && (get(/databases/$(database)/documents/sellRequests/$(id)).data.sellerId == uid() || isStaff());
+        allow create: if activeStore() && request.resource.data.storeId == uid()
+          && request.resource.data.amount == getAfter(/databases/$(database)/documents/sellRequests/$(id)).data.highestBid;
+      }
+      match /private/{doc} {
+        allow read: if signedIn() && (get(/databases/$(database)/documents/sellRequests/$(id)).data.sellerId == uid()
+          || get(/databases/$(database)/documents/sellRequests/$(id)).data.winnerStoreId == uid() || isStaff());
+        allow create: if signedIn() && getAfter(/databases/$(database)/documents/sellRequests/$(id)).data.sellerId == uid() && doc == 'data';
+      }
+    }
+
+    match /subscriptionRequests/{id} {
+      allow read: if signedIn() && (resource.data.storeId == uid() || isStaff());
+      allow create: if signedIn() && request.resource.data.storeId == uid() && request.resource.data.status == 'pending';
+      allow update: if isStaff();
+    }
+
+    match /notifications/{id} {
+      allow create: if signedIn() && request.resource.data.fromUid == uid();
+      allow read: if signedIn() && resource.data.toUid == uid();
+      allow update: if signedIn() && resource.data.toUid == uid() && changed().hasOnly(['read']);
+    }
+
+    match /auditLogs/{id} {
+      allow create: if isStaff() && request.resource.data.by == uid();
+      allow read: if isOwner();
+    }
+  }
+}
