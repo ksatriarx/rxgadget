@@ -1,5 +1,5 @@
 import { configured, C, getDocs, query, where, limit } from "./fb.js";
-import { h } from "./ui.js";
+import { h, svg } from "./ui.js";
 import { S, onAuth, isStaff, render, parseHash, requireLogin, initAuth, logout } from "./core.js";
 import "./pages/public.js";
 import "./pages/account.js";
@@ -9,15 +9,20 @@ import "./pages/admin.js";
 
 let unread = 0, menuOpen = false;
 
+const R_LOGO = '<svg width="22" height="22" viewBox="0 0 30 30" aria-hidden="true"><rect x="1" y="1" width="28" height="28" rx="8" fill="none" stroke="#4DF0C0" stroke-width="2"/><path d="M9 21V9h6a3.5 3.5 0 0 1 0 7H9m6 0 5 5" fill="none" stroke="#4DF0C0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 function drawHeader() {
   const top = document.getElementById("top");
+  const NL = (t, href, fn) => h("a", { href, onClick: fn }, t);
+  const toReview = () => setTimeout(() => document.getElementById("review")?.scrollIntoView({ behavior: "smooth" }), 250);
   const bar = h("div", { class: "bar" },
-    h("a", { class: "logo", href: "#/" }, h("span", null, "Rx", h("b", null, "gadget"))),
-    h("div", { class: "row" },
+    h("a", { class: "logo", href: "#/" }, svg(R_LOGO), h("span", null, h("span", { class: "ac" }, "Rx"), "gadget")),
+    h("div", { class: "navl" }, NL("Beli HP", "#/katalog"), NL("Jual / Tukar Tambah", "#/jual"), NL("Review", "#/", toReview), NL("Untuk Toko", S.store ? "#/toko-saya" : "#/daftar-toko")),
+    h("div", { class: "row", style: { gap: "6px" } },
       S.user ? h("a", { class: "btn sm out", href: "#/notifikasi", "aria-label": "Notifikasi" }, "Notifikasi" + (unread ? " (" + unread + ")" : "")) : null,
       S.user
         ? h("button", { class: "btn sm out", onClick: () => { menuOpen = !menuOpen; drawHeader(); } }, (S.profile?.name || S.user.displayName || "Akun").split(" ")[0] + " ▾")
-        : h("button", { class: "btn sm pri", onClick: async () => { await requireLogin(); } }, "Masuk")));
+        : [h("button", { class: "btn sm out", onClick: async () => { await requireLogin(); } }, "Masuk"), h("a", { class: "btn sm pri", href: "#/daftar-toko" }, "Daftar Toko")]));
   top.replaceChildren(bar);
   if (menuOpen && S.user) {
     const close = () => { menuOpen = false; drawHeader(); };
@@ -31,14 +36,10 @@ function drawHeader() {
   }
 }
 
-function drawChips() {
-  const { path } = parseHash();
-  const items = [["Beranda", "/"], ["Katalog", "/katalog"], ["Jual / Tukar", "/jual"], ["Lelang", "/lelang"]];
-  document.getElementById("chips").replaceChildren(...items.map(([t, p]) => h("a", { href: "#" + p, class: path === p || (p !== "/" && path.startsWith(p)) ? "on" : "" }, t)));
-}
+function drawChips() { const c = document.getElementById("chips"); if (c) c.style.display = "none"; }
 
 function drawFooter() {
-  document.getElementById("foot").replaceChildren(h("div", null, h("a", { href: "#/syarat" }, "Syarat Layanan"), h("a", { href: "#/privasi" }, "Kebijakan Privasi")), h("div", { style: { marginTop: "6px" } }, "© Rxgadget · Dana transaksi ditahan penengah"));
+  document.getElementById("foot").replaceChildren(h("div", { class: "fwrap" }, h("span", null, "Rxgadget · HP second yang jelas kondisinya"), h("span", { class: "flinks" }, h("a", { href: "#/syarat" }, "Syarat"), h("a", { href: "#/privasi" }, "Privasi"))));
 }
 
 async function loadUnread() {
