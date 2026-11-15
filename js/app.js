@@ -12,7 +12,7 @@ let unread = 0, menuOpen = false;
 function drawHeader() {
   const top = document.getElementById("top");
   const bar = h("div", { class: "bar" },
-    h("a", { class: "logo", href: "#/" }, "Rx", h("b", null, "gadget")),
+    h("a", { class: "logo", href: "#/" }, h("span", null, "Rx", h("b", null, "gadget"))),
     h("div", { class: "row" },
       S.user ? h("a", { class: "btn sm out", href: "#/notifikasi", "aria-label": "Notifikasi" }, "Notifikasi" + (unread ? " (" + unread + ")" : "")) : null,
       S.user
