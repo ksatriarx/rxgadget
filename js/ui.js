@@ -197,13 +197,13 @@ export function svg(markup) {
   return document.importNode(el, true);
 }
 export const TONE = {
-  A: { tint: "#4DF0C0", glow: "rgba(77,240,192,0.28)", screen: "#10252A" },
-  B: { tint: "#FFB454", glow: "rgba(255,180,84,0.26)", screen: "#2A2210" },
-  C: { tint: "#FF9A8A", glow: "rgba(255,154,138,0.24)", screen: "#2A1613" }
+  A: { tint: "#08826D", glow: "rgba(8,130,109,0.16)", screen: "#D8F5EC" },
+  B: { tint: "#E8890C", glow: "rgba(232,137,12,0.16)", screen: "#FFEBCB" },
+  C: { tint: "#E0594D", glow: "rgba(224,89,77,0.15)", screen: "#FFDDD7" }
 };
 export const tone = (g) => TONE[g] || TONE.C;
-export const phoneSvg = (g, w = 38, hh = 68) => { const t = tone(g); return svg(`<svg width="${w}" height="${hh}" viewBox="0 0 84 150" aria-hidden="true"><rect x="2" y="2" width="80" height="146" rx="16" fill="#0B0D12" stroke="${t.tint}" stroke-width="3"/><rect x="8" y="10" width="68" height="128" rx="10" fill="${t.screen}"/><circle cx="42" cy="18" r="3" fill="#0B0D12"/></svg>`); };
-export const icon = (d, size = 18, color = "#4DF0C0", sw = 1.8) => svg(`<svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true" style="flex:none"><path d="${d}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/></svg>`);
+export const phoneSvg = (g, w = 38, hh = 68) => { const t = tone(g); return svg(`<svg width="${w}" height="${hh}" viewBox="0 0 84 150" aria-hidden="true"><rect x="2" y="2" width="80" height="146" rx="16" fill="#FFFFFF" stroke="${t.tint}" stroke-width="3"/><rect x="8" y="10" width="68" height="128" rx="10" fill="${t.screen}"/><circle cx="42" cy="18" r="3" fill="#1F2430"/></svg>`); };
+export const icon = (d, size = 18, color = "#08826D", sw = 1.8) => svg(`<svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true" style="flex:none"><path d="${d}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/></svg>`);
 export const ICON = {
   star: "M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.3 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z",
   shield: "M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z M9 12l2 2 4-4",
