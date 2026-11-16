@@ -164,10 +164,10 @@ export function productCard(p) {
   const t = tone(p.grade);
   const spec = [p.storage, p.health?.battery ? p.health.battery + "%" : null].filter(Boolean).join(" · ");
   return h("a", { class: "pc", href: "#/produk/" + p.id },
-    h("div", { class: "pc-img", style: thumb ? {} : { background: `radial-gradient(80px 80px at 50% 55%, ${t.glow}, rgba(20,24,33,0) 75%)` } },
+    h("div", { class: "pc-img", style: thumb ? {} : { background: `radial-gradient(80px 80px at 50% 55%, ${t.glow}, rgba(255,255,255,0) 75%)` } },
       thumb ? h("img", { src: thumb, alt: "", loading: "lazy" }) : phoneSvg(p.grade),
       h("span", { class: "gpill", style: { background: t.tint } }, p.grade || "-"),
-      p.reviewedByRx ? h("span", { class: "chk-c", title: "Direview Rxgadget" }, icon(ICON.check, 9, "#4DF0C0", 3)) : null),
+      p.reviewedByRx ? h("span", { class: "chk-c", title: "Direview Rxgadget" }, icon(ICON.check, 10, "#08826D", 3)) : null),
     h("div", { class: "pc-b" },
       h("div", { class: "pc-t" }, p.title),
       h("div", { class: "pc-s" }, spec),
