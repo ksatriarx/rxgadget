@@ -1,6 +1,6 @@
 import { D, C, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, limit, serverTimestamp } from "../fb.js";
-import { h, rp, field, run, toast, confirmBox, kv, note, safeUrl, videoOk, fmtDate, toMs, photoPicker, chips, isPhone } from "../ui.js";
-import { S, route, go, requireLogin, loadUser, storeActive, getSettings, productCard } from "../core.js";
+import { h, rp, field, run, toast, confirmBox, kv, note, safeUrl, videoOk, fmtDate, toMs, photoPicker, chips, isPhone, waLink } from "../ui.js";
+import { S, route, go, render, requireLogin, loadUser, storeActive, getSettings, productCard } from "../core.js";
 
 /* ---------- Daftar toko ---------- */
 route("/daftar-toko", async () => {
@@ -14,14 +14,14 @@ route("/daftar-toko", async () => {
   };
   const logo = [];
   return h("div", { class: "col" }, h("h1", null, "Daftar sebagai Toko"),
-    note("Toko baru disetujui admin lebih dulu. Setelah disetujui, Anda mendapat uji coba gratis 1 bulan, lalu langganan tetap bulanan tanpa komisi per penjualan."),
+    h("div", { class: "card pad" }, h("div", { class: "b" }, "Cara kerjanya"), h("div", { class: "tl3" }, [["1", "Isi data toko", "Lengkapi form di bawah."], ["2", "Ditinjau admin", "Admin memeriksa data toko Anda."], ["3", "Mulai berjualan", "Setelah disetujui: uji coba gratis 1 bulan, lalu langganan tetap bulanan tanpa komisi."]].map(([n, t, d]) => h("div", { class: "tl3-i" }, h("span", { class: "num" }, n), h("div", null, h("div", { class: "b sm" }, t), h("div", { class: "mut xs" }, d)))))),
     field("Nama toko", f.name), field("Kota", f.city), field("Alamat", f.address), field("Link peta", f.mapUrl, "Buka Google Maps, cari toko Anda, pilih Bagikan, lalu salin link."), field("Jam buka", f.hours), field("WhatsApp toko", f.whatsapp), field("Tentang toko", f.description), field("Logo toko (opsional)", photoPicker(logo, 1)),
     h("button", { class: "btn pri", onClick: (e) => run(e.currentTarget, async () => {
       if (!f.name.value.trim() || !f.city.value.trim() || !f.address.value.trim()) return toast("Nama, kota, dan alamat wajib diisi", "err");
       if (!isPhone(f.whatsapp.value)) return toast("Nomor WhatsApp tidak valid", "err");
       if (f.mapUrl.value && !safeUrl(f.mapUrl.value)) return toast("Link peta tidak valid", "err");
       await setDoc(D("stores", S.user.uid), { name: f.name.value.trim(), city: f.city.value.trim(), address: f.address.value.trim(), mapUrl: safeUrl(f.mapUrl.value), hours: f.hours.value.trim(), whatsapp: f.whatsapp.value.replace(/[\s-]/g, ""), description: f.description.value.trim(), logoUrl: logo[0] || "", status: "pending", warnings: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-      await loadUser(S.user); toast("Pendaftaran terkirim. Menunggu persetujuan admin."); go("/toko-saya");
+      await loadUser(S.user); go("/toko-saya?baru=1");
     }) }, "Kirim pendaftaran"));
 });
 
@@ -30,7 +30,20 @@ route("/toko-saya", async (_, q) => {
   if (!S.user) return h("div", { class: "card pad" }, "Silakan masuk.");
   if (!S.store) return h("div", { class: "card pad col" }, h("p", null, "Anda belum punya toko."), h("a", { class: "btn pri", href: "#/daftar-toko" }, "Daftar sebagai Toko"));
   const st = S.store;
-  if (st.status === "pending") return h("div", { class: "card pad col" }, h("h1", null, st.name), note("Pendaftaran toko Anda sedang diperiksa admin. Anda akan mendapat notifikasi setelah disetujui.", "wr"));
+  if (st.status === "pending") {
+    const cfgP = await getSettings();
+    const stp = (state, t, d) => h("div", { class: "tl3-i " + state }, h("span", { class: "num" }, state === "done" ? "✓" : state === "now" ? "•" : "·"), h("div", null, h("div", { class: "b sm" }, t), h("div", { class: "mut xs" }, d)));
+    return h("div", { class: "col gap" },
+      q.baru ? h("div", { class: "okbox" }, h("div", { class: "b" }, "Pendaftaran terkirim"), h("div", { class: "sm" }, "Terima kasih. Data toko Anda sudah masuk dan sedang menunggu pemeriksaan admin.")) : null,
+      h("div", { class: "card pad col" },
+        h("div", { class: "row sp" }, h("h1", null, st.name), h("span", { class: "tag wr" }, "Menunggu persetujuan")),
+        h("p", { class: "mut sm" }, "Toko Anda belum aktif. Setelah admin menyetujui, Anda akan mendapat notifikasi di web ini dan bisa mulai mengunggah HP."),
+        h("div", { class: "tl3" }, stp("done", "Pendaftaran terkirim", fmtDate(st.createdAt)), stp("now", "Ditinjau admin", "Sedang berlangsung"), stp("next", "Disetujui", "Toko aktif dan uji coba gratis 1 bulan dimulai"))),
+      h("div", { class: "card pad" }, h("div", { class: "b", style: { marginBottom: "6px" } }, "Data yang Anda kirim"), kv("Nama toko", st.name), kv("Kota", st.city), kv("Alamat", st.address), kv("WhatsApp", st.whatsapp)),
+      h("div", { class: "row" },
+        h("button", { class: "btn pri", onClick: (e) => run(e.currentTarget, async () => { await loadUser(S.user); if (S.store?.status === "pending") toast("Status masih: menunggu persetujuan"); else toast("Status toko diperbarui"); render(); }) }, "Cek status terbaru"),
+        cfgP.adminWa ? h("a", { class: "btn out", href: waLink(cfgP.adminWa, "Halo admin Rxgadget, saya mendaftarkan toko " + st.name + "."), target: "_blank", rel: "noopener" }, "Hubungi admin") : null));
+  }
   if (st.status === "suspended") return h("div", { class: "card pad col" }, h("h1", null, st.name), note("Toko Anda sedang ditangguhkan. Hubungi pengelola Rxgadget.", "er"));
   const cfg = await getSettings();
   const tab = q.tab || "produk";
