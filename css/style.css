@@ -151,3 +151,11 @@ td,th{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;vertic
 .vid-c{position:absolute;left:6px;right:6px;bottom:6px;font-size:9px;font-weight:600;background:rgba(255,255,255,.92);border-radius:8px;padding:3px 6px;text-align:center}
 .pill{font-size:11px;font-weight:600;background:var(--acs);color:var(--ac);border-radius:999px;padding:4px 10px}
 .cta{display:flex;flex-direction:column;gap:12px;justify-content:center;background:linear-gradient(135deg,#E3F6F0,#FFFFFF)}
+
+.tl3{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+.tl3-i{display:flex;gap:10px;align-items:flex-start}
+.tl3-i .num{flex:none;width:26px;height:26px;border-radius:50%;background:#fff;border:1px solid var(--line2);color:var(--mut);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.tl3-i.done .num{background:var(--ac);border-color:var(--ac);color:#fff}
+.tl3-i.now .num{border-color:var(--am);color:var(--am);background:#FFF1DE}
+.okbox{padding:14px 16px;border-radius:16px;background:var(--acs);border:1px solid rgba(8,130,109,.35);color:var(--tx)}
+.stpill{display:inline-flex;align-items:center;padding:5px 11px;border-radius:999px;background:#FFF1DE;border:1px solid #F0C58E;color:var(--am);font-size:12px;font-weight:700}
