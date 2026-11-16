@@ -7,7 +7,7 @@ import "./pages/store.js";
 import "./pages/sell.js";
 import "./pages/admin.js";
 
-let unread = 0, menuOpen = false;
+let unread = 0, pendingStores = 0, menuOpen = false;
 
 const R_LOGO = '<svg width="22" height="22" viewBox="0 0 30 30" aria-hidden="true"><rect x="1" y="1" width="28" height="28" rx="8" fill="none" stroke="#08826D" stroke-width="2"/><path d="M9 21V9h6a3.5 3.5 0 0 1 0 7H9m6 0 5 5" fill="none" stroke="#08826D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
@@ -19,6 +19,8 @@ function drawHeader() {
     h("a", { class: "logo", href: "#/" }, svg(R_LOGO), h("span", null, h("span", { class: "ac" }, "Rx"), "gadget")),
     h("div", { class: "navl" }, NL("Beli HP", "#/katalog"), NL("Jual / Tukar Tambah", "#/jual"), NL("Review", "#/", toReview), NL("Untuk Toko", S.store ? "#/toko-saya" : "#/daftar-toko")),
     h("div", { class: "row", style: { gap: "6px" } },
+      S.store?.status === "pending" ? h("a", { class: "stpill", href: "#/toko-saya" }, "Toko menunggu persetujuan") : null,
+      isStaff() && pendingStores ? h("a", { class: "stpill", href: "#/admin" }, pendingStores + " toko menunggu") : null,
       S.user ? h("a", { class: "btn sm out", href: "#/notifikasi", "aria-label": "Notifikasi" }, "Notifikasi" + (unread ? " (" + unread + ")" : "")) : null,
       S.user
         ? h("button", { class: "btn sm out", onClick: () => { menuOpen = !menuOpen; drawHeader(); } }, (S.profile?.name || S.user.displayName || "Akun").split(" ")[0] + " ▾")
@@ -29,9 +31,9 @@ function drawHeader() {
     const L = (t, href) => h("a", { href, onClick: close }, t);
     top.append(h("div", { class: "menu" },
       L("Profil & rekening", "#/profil"), L("Pesanan saya", "#/pesanan"), L("Pengajuan jual saya", "#/pengajuan"),
-      S.store ? L("Toko saya", "#/toko-saya") : L("Daftar sebagai toko", "#/daftar-toko"),
+      S.store ? L(S.store.status === "pending" ? "Toko saya (menunggu persetujuan)" : "Toko saya", "#/toko-saya") : L("Daftar sebagai toko", "#/daftar-toko"),
       S.store ? L("HP masuk (lelang)", "#/lelang") : null,
-      isStaff() ? L("Panel " + S.role, "#/admin") : L("Masuk sebagai admin", "#/admin-masuk"),
+      isStaff() ? L("Panel " + S.role + (pendingStores ? " (" + pendingStores + " toko menunggu)" : ""), "#/admin") : L("Masuk sebagai admin", "#/admin-masuk"),
       h("button", { onClick: () => { close(); logout(); } }, "Keluar")));
   }
 }
@@ -49,6 +51,8 @@ async function loadUnread() {
     const s = await getDocs(query(C("notifications"), where("toUid", "==", S.user.uid), limit(100)));
     s.forEach((d) => { if (!d.data().read) unread++; });
   } catch { /* abaikan */ }
+  pendingStores = 0;
+  if (isStaff()) { try { const ps = await getDocs(query(C("stores"), where("status", "==", "pending"), limit(50))); pendingStores = ps.size; } catch { /* abaikan */ } }
   drawHeader();
 }
 
