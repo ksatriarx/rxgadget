@@ -9,7 +9,7 @@ import "./pages/admin.js";
 
 let unread = 0, menuOpen = false;
 
-const R_LOGO = '<svg width="22" height="22" viewBox="0 0 30 30" aria-hidden="true"><rect x="1" y="1" width="28" height="28" rx="8" fill="none" stroke="#4DF0C0" stroke-width="2"/><path d="M9 21V9h6a3.5 3.5 0 0 1 0 7H9m6 0 5 5" fill="none" stroke="#4DF0C0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const R_LOGO = '<svg width="22" height="22" viewBox="0 0 30 30" aria-hidden="true"><rect x="1" y="1" width="28" height="28" rx="8" fill="none" stroke="#08826D" stroke-width="2"/><path d="M9 21V9h6a3.5 3.5 0 0 1 0 7H9m6 0 5 5" fill="none" stroke="#08826D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 function drawHeader() {
   const top = document.getElementById("top");
